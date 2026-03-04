@@ -2,6 +2,7 @@ package com.aylar.chartinglib.charts.line
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.aylar.chartinglib.mapper.CoordinateMapper
@@ -19,9 +20,12 @@ object LineChartDrawer {
         density: Float
     ) {
         if (offsets.size < 2) return
-        val lineWidthPx = (style.lineWidth).value * density
         val path = PathBuilder.polyline(offsets)
-        drawPath(path, style.lineColor, style = Stroke(width = lineWidthPx))
+        drawLinePath(path, style.lineColor, (style.lineWidth).value * density)
+    }
+
+    fun DrawScope.drawLinePath(path: Path, color: Color, lineWidthPx: Float) {
+        drawPath(path, color, style = Stroke(width = lineWidthPx))
     }
 
     fun DrawScope.drawAreaFill(

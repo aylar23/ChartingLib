@@ -1,5 +1,7 @@
 package com.aylar.chartinglib.charts.line
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -21,12 +24,15 @@ import com.aylar.chartinglib.components.grid.GridConfig
 import com.aylar.chartinglib.components.grid.GridDrawer.drawGrid
 import com.aylar.chartinglib.components.tooltip.Tooltip
 import com.aylar.chartinglib.components.tooltip.TooltipConfig
+import com.aylar.chartinglib.animation.AnimationConfig
+import com.aylar.chartinglib.animation.DrawOnAnimation
 import com.aylar.chartinglib.data.ChartData
 import com.aylar.chartinglib.data.DataPoint
 import com.aylar.chartinglib.mapper.CoordinateMapper
 import com.aylar.chartinglib.state.ChartState
 import com.aylar.chartinglib.touch.chartGestureHandler
 import com.aylar.chartinglib.charts.line.LineChartDrawer.drawAreaFill
+import com.aylar.chartinglib.charts.line.LineChartDrawer.drawLinePath
 import com.aylar.chartinglib.charts.line.LineChartDrawer.drawLineSeries
 import com.aylar.chartinglib.charts.line.LineChartDrawer.drawPointIndicators
 
@@ -68,10 +74,25 @@ fun LineChart(
     gridConfig: GridConfig = GridConfig(),
     chartState: ChartState? = null,
     onPointSelected: ((DataPoint?, Int) -> Unit)? = null,
-    tooltipConfig: TooltipConfig? = null
+    tooltipConfig: TooltipConfig? = null,
+    animationConfig: AnimationConfig? = null
 ) {
     var size by remember { mutableStateOf(IntSize.Zero) }
     val bounds = data.dataBounds()
+    var drawOnTarget by remember(animationConfig?.enableDrawOn) {
+        mutableStateOf(if (animationConfig?.enableDrawOn == true) 0f else 1f)
+    }
+    LaunchedEffect(animationConfig?.enableDrawOn) {
+        if (animationConfig?.enableDrawOn == true) drawOnTarget = 1f
+    }
+    val drawOnProgress by animateFloatAsState(
+        targetValue = drawOnTarget,
+        animationSpec = tween(
+            durationMillis = animationConfig?.durationMillis ?: 600,
+            easing = animationConfig?.easing ?: androidx.compose.animation.core.FastOutSlowInEasing
+        ),
+        label = "drawOn"
+    )
     val drawLeft = padding.left
     val drawTop = padding.top
     val drawWidth = (size.width - padding.left - padding.right).toFloat().coerceAtLeast(0f)
@@ -119,7 +140,12 @@ fun LineChart(
                         baselineY = baselineY
                     )
                 }
-                drawLineSeries(mapper, offsets, lineStyle, density)
+                if (animationConfig?.enableDrawOn == true) {
+                    val path = DrawOnAnimation.trimmedPath(offsets, drawOnProgress)
+                    drawLinePath(path, lineStyle.lineColor, (lineStyle.lineWidth).value * density)
+                } else {
+                    drawLineSeries(mapper, offsets, lineStyle, density)
+                }
                 if (style.showPoints) {
                     drawPointIndicators(offsets, color, style.pointRadiusPx)
                 }

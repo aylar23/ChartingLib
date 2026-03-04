@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.aylar.chartinglib.charts.line.LineChart
 import com.aylar.chartinglib.charts.line.LineChartStyle
+import com.aylar.chartinglib.animation.AnimationConfig
 import com.aylar.chartinglib.components.PaddingValues
 import com.aylar.chartinglib.components.tooltip.TooltipConfig
 import com.aylar.chartinglib.state.rememberChartState
@@ -38,7 +39,8 @@ fun LineChartScreen(modifier: Modifier = Modifier) {
             padding = PaddingValues(48f, 24f, 24f, 48f),
             chartState = chartState,
             onPointSelected = { _, _ -> },
-            tooltipConfig = TooltipConfig()
+            tooltipConfig = TooltipConfig(),
+            animationConfig = AnimationConfig(enableDrawOn = true, durationMillis = 800)
         )
     }
 }
