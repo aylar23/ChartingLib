@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "ChartingLib"
 include(":app")
+include(":charting-lib")
  

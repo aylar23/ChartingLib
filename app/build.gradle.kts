@@ -6,9 +6,7 @@ plugins {
 
 android {
     namespace = "com.aylar.cartinglib"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.aylar.cartinglib"
@@ -42,6 +40,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":charting-lib"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
