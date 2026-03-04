@@ -40,7 +40,7 @@ fun LineChartScreen(modifier: Modifier = Modifier) {
             chartState = chartState,
             onPointSelected = { _, _ -> },
             tooltipConfig = TooltipConfig(),
-            animationConfig = AnimationConfig(enableDrawOn = true, durationMillis = 800)
+            animation = AnimationConfig(enableDrawOn = true, durationMillis = 800)
         )
     }
 }

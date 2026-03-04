@@ -1,0 +1,4 @@
+jdk:
+  - openjdk17
+install:
+  - ./gradlew :charting-lib:publishReleasePublicationToMavenLocal --no-daemon

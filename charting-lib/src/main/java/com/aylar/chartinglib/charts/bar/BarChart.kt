@@ -14,7 +14,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.aylar.chartinglib.components.PaddingValues
+import com.aylar.chartinglib.theme.ChartDefaults
 import com.aylar.chartinglib.components.axis.AxisConfig
 import com.aylar.chartinglib.components.axis.AxisDrawer.drawXAxis
 import com.aylar.chartinglib.components.axis.AxisDrawer.drawYAxis
@@ -24,13 +27,6 @@ import com.aylar.chartinglib.data.ChartData
 import com.aylar.chartinglib.mapper.CoordinateMapper
 import com.aylar.chartinglib.charts.bar.BarChartDrawer.drawBar
 
-private val DEFAULT_BAR_COLORS = listOf(
-    Color(0xFF6200EE),
-    Color(0xFF03DAC6),
-    Color(0xFFFF5722),
-    Color(0xFFE91E63),
-    Color(0xFF4CAF50)
-)
 
 /**
  * Bar chart composable: draws bars from [data] (one or more series), with optional axes and grid.
@@ -40,8 +36,8 @@ fun BarChart(
     modifier: Modifier = Modifier.fillMaxSize(),
     data: ChartData,
     style: BarChartStyle = BarChartStyle(),
-    seriesColors: List<Color> = DEFAULT_BAR_COLORS,
-    padding: PaddingValues = PaddingValues(48f, 24f, 24f, 48f),
+    seriesColors: List<Color> = ChartDefaults.seriesColors,
+    padding: PaddingValues = PaddingValues(ChartDefaults.paddingLeft, ChartDefaults.paddingTop, ChartDefaults.paddingRight, ChartDefaults.paddingBottom),
     xAxis: AxisConfig = AxisConfig(),
     yAxis: AxisConfig = AxisConfig(),
     gridConfig: GridConfig = GridConfig()
@@ -54,7 +50,11 @@ fun BarChart(
     val drawHeight = (size.height - padding.top - padding.bottom).toFloat().coerceAtLeast(0f)
     val cornerRadiusPx = with(LocalDensity.current) { style.barCornerRadius.toPx() }
 
-    Box(modifier = modifier.onSizeChanged { newSize -> size = newSize }) {
+    Box(
+        modifier = modifier
+            .onSizeChanged { newSize -> size = newSize }
+            .semantics { contentDescription = "Bar chart with ${data.series.size} series" }
+    ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             if (bounds == null || drawWidth <= 0 || drawHeight <= 0) return@Canvas
 
