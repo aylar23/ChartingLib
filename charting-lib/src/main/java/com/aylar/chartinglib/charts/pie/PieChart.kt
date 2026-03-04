@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import com.aylar.chartinglib.data.PieSlice
@@ -22,7 +24,9 @@ fun PieChart(
     val total = slices.sumOf { it.value.toDouble() }.toFloat().coerceAtLeast(1f)
     val colors = style.sliceColors
 
-    Canvas(modifier = modifier) {
+    Canvas(
+        modifier = modifier.semantics { contentDescription = "Pie chart with ${slices.size} slices" }
+    ) {
         val radius = size.minDimension / 2f
         val center = Offset(size.width / 2f, size.height / 2f)
         var startAngle = 0f

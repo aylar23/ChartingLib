@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    `maven-publish`
 }
 
 android {
@@ -44,4 +45,29 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.animation)
+    testImplementation(libs.junit)
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "com.github.aylar"
+                artifactId = "ChartingLib"
+                version = project.findProperty("VERSION_NAME")?.toString() ?: "1.0.0"
+                pom {
+                    name.set("ChartingLib")
+                    description.set("Jetpack Compose charting library: line, bar, pie, donut with axes, grid, tooltips, and animations")
+                    url.set("https://github.com/aylar/ChartingLib")
+                    licenses {
+                        license {
+                            name.set("The Apache License, Version 2.0")
+                            url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

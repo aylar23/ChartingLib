@@ -56,6 +56,7 @@ fun ChartCanvas(
 /**
  * Padding for the chart draw area (left, top, right, bottom in pixels).
  */
+@androidx.compose.runtime.Immutable
 data class PaddingValues(
     val left: Float,
     val top: Float,

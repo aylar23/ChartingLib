@@ -1,21 +1,31 @@
 package com.aylar.chartinglib.charts.line
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
+import com.aylar.chartinglib.animation.AnimationConfig
+import com.aylar.chartinglib.animation.DrawOnAnimation
+import com.aylar.chartinglib.charts.line.LineChartDrawer.drawAreaFill
+import com.aylar.chartinglib.charts.line.LineChartDrawer.drawLinePath
+import com.aylar.chartinglib.charts.line.LineChartDrawer.drawLineSeries
+import com.aylar.chartinglib.charts.line.LineChartDrawer.drawPointIndicators
 import com.aylar.chartinglib.components.PaddingValues
 import com.aylar.chartinglib.components.axis.AxisConfig
 import com.aylar.chartinglib.components.axis.AxisDrawer.drawXAxis
@@ -24,25 +34,12 @@ import com.aylar.chartinglib.components.grid.GridConfig
 import com.aylar.chartinglib.components.grid.GridDrawer.drawGrid
 import com.aylar.chartinglib.components.tooltip.Tooltip
 import com.aylar.chartinglib.components.tooltip.TooltipConfig
-import com.aylar.chartinglib.animation.AnimationConfig
-import com.aylar.chartinglib.animation.DrawOnAnimation
 import com.aylar.chartinglib.data.ChartData
 import com.aylar.chartinglib.data.DataPoint
 import com.aylar.chartinglib.mapper.CoordinateMapper
 import com.aylar.chartinglib.state.ChartState
+import com.aylar.chartinglib.theme.ChartDefaults
 import com.aylar.chartinglib.touch.chartGestureHandler
-import com.aylar.chartinglib.charts.line.LineChartDrawer.drawAreaFill
-import com.aylar.chartinglib.charts.line.LineChartDrawer.drawLinePath
-import com.aylar.chartinglib.charts.line.LineChartDrawer.drawLineSeries
-import com.aylar.chartinglib.charts.line.LineChartDrawer.drawPointIndicators
-
-private val DEFAULT_SERIES_COLORS = listOf(
-    Color(0xFF6200EE),
-    Color(0xFF03DAC6),
-    Color(0xFFFF5722),
-    Color(0xFFE91E63),
-    Color(0xFF4CAF50)
-)
 
 private fun dataPointToOffset(
     point: DataPoint,
@@ -60,50 +57,86 @@ private fun dataPointToOffset(
 
 /**
  * Line chart composable: axes, grid, one or more series, optional area fill and point indicators.
- * Optional [chartState] and [onPointSelected] enable scrubber; [tooltipConfig] shows a tooltip overlay.
+ *
+ * Example:
+ * ```
+ * LineChart(
+ *     modifier = Modifier.fillMaxWidth().height(300.dp),
+ *     data = chartData,
+ *     style = LineChartStyle(lineColor = MaterialTheme.colorScheme.primary, lineWidth = 3.dp),
+ *     xAxis = AxisConfig(labelCount = 6, formatter = { "%.0f".format(it) }),
+ *     animation = AnimationConfig(duration = 600, easing = FastOutSlowInEasing),
+ *     onPointSelected = { point -> }
+ * )
+ * ```
+ *
+ * @param chartState Optional state for scrubber/tooltip; use [rememberChartState].
+ * @param onPointSelected Called when user drags and highlights a point.
  */
 @Composable
 fun LineChart(
     modifier: Modifier = Modifier.fillMaxSize(),
     data: ChartData,
     style: LineChartStyle = LineChartStyle(),
-    seriesColors: List<Color> = DEFAULT_SERIES_COLORS,
-    padding: PaddingValues = PaddingValues(48f, 24f, 24f, 48f),
+    seriesColors: List<Color> = ChartDefaults.seriesColors,
+    padding: PaddingValues = PaddingValues(
+        ChartDefaults.paddingLeft,
+        ChartDefaults.paddingTop,
+        ChartDefaults.paddingRight,
+        ChartDefaults.paddingBottom
+    ),
     xAxis: AxisConfig = AxisConfig(),
     yAxis: AxisConfig = AxisConfig(),
     gridConfig: GridConfig = GridConfig(),
     chartState: ChartState? = null,
     onPointSelected: ((DataPoint?, Int) -> Unit)? = null,
     tooltipConfig: TooltipConfig? = null,
-    animationConfig: AnimationConfig? = null
+    animation: AnimationConfig? = null
 ) {
     var size by remember { mutableStateOf(IntSize.Zero) }
-    val bounds = data.dataBounds()
-    var drawOnTarget by remember(animationConfig?.enableDrawOn) {
-        mutableStateOf(if (animationConfig?.enableDrawOn == true) 0f else 1f)
+    val bounds by remember {
+        derivedStateOf { data.dataBounds() }
     }
-    LaunchedEffect(animationConfig?.enableDrawOn) {
-        if (animationConfig?.enableDrawOn == true) drawOnTarget = 1f
-    }
-    val drawOnProgress by animateFloatAsState(
-        targetValue = drawOnTarget,
-        animationSpec = tween(
-            durationMillis = animationConfig?.durationMillis ?: 600,
-            easing = animationConfig?.easing ?: androidx.compose.animation.core.FastOutSlowInEasing
-        ),
-        label = "drawOn"
-    )
     val drawLeft = padding.left
     val drawTop = padding.top
     val drawWidth = (size.width - padding.left - padding.right).toFloat().coerceAtLeast(0f)
     val drawHeight = (size.height - padding.top - padding.bottom).toFloat().coerceAtLeast(0f)
+
+    val mapper = remember(drawLeft, drawTop, drawWidth, drawHeight, bounds) {
+        if (bounds == null || drawWidth <= 0 || drawHeight <= 0) null
+        else CoordinateMapper(
+            drawLeft, drawTop, drawWidth, drawHeight,
+            bounds!!.minX, bounds!!.maxX, bounds!!.minY, bounds!!.maxY
+        )
+    }
+    val seriesOffsets = remember(mapper, data.series) {
+        mapper?.let { m ->
+            data.series.map { series -> series.points.map { m.mapToOffset(it) } }
+        } ?: emptyList()
+    }
+
+    var drawOnTarget by remember(animation?.enableDrawOn) {
+        mutableStateOf(if (animation?.enableDrawOn == true) 0f else 1f)
+    }
+    LaunchedEffect(animation?.enableDrawOn) {
+        if (animation?.enableDrawOn == true) drawOnTarget = 1f
+    }
+    val drawOnProgress by animateFloatAsState(
+        targetValue = drawOnTarget,
+        animationSpec = tween(
+            durationMillis = animation?.durationMillis ?: ChartDefaults.animationDurationMillis,
+            easing = animation?.easing ?: FastOutSlowInEasing
+        ),
+        label = "drawOn"
+    )
+
     val hasInteraction = chartState != null && onPointSelected != null
     val gestureModifier = if (hasInteraction && bounds != null && drawWidth > 0 && drawHeight > 0) {
         Modifier.chartGestureHandler(
             chartState!!,
             data,
             drawLeft, drawTop, drawWidth, drawHeight,
-            bounds.minX, bounds.maxX, bounds.minY, bounds.maxY,
+            bounds!!.minX, bounds!!.maxX, bounds!!.minY, bounds!!.maxY,
             onPointSelected
         )
     } else Modifier
@@ -112,26 +145,21 @@ fun LineChart(
         modifier = modifier
             .onSizeChanged { size = it }
             .then(gestureModifier)
+            .semantics { contentDescription = "Line chart with ${data.series.size} series" }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            if (bounds == null) return@Canvas
-            if (drawWidth <= 0 || drawHeight <= 0) return@Canvas
-
-            val mapper = CoordinateMapper(
-                drawLeft, drawTop, drawWidth, drawHeight,
-                bounds.minX, bounds.maxX, bounds.minY, bounds.maxY
-            )
+            if (bounds == null || mapper == null || drawWidth <= 0 || drawHeight <= 0) return@Canvas
 
             drawGrid(mapper, gridConfig)
             drawXAxis(mapper, xAxis)
             drawYAxis(mapper, yAxis)
 
             val baselineY = mapper.drawBoundsBottom
-            for ((index, series) in data.series.withIndex()) {
-                if (series.points.size < 2) continue
+            data.series.forEachIndexed { index, series ->
+                if (series.points.size < 2) return@forEachIndexed
+                val offsets = seriesOffsets.getOrNull(index) ?: return@forEachIndexed
                 val color = seriesColors.getOrElse(index) { seriesColors.last() }
                 val lineStyle = style.copy(lineColor = color)
-                val offsets = series.points.map { mapper.mapToOffset(it) }
 
                 if (style.fillAlpha > 0f) {
                     drawAreaFill(
@@ -140,7 +168,7 @@ fun LineChart(
                         baselineY = baselineY
                     )
                 }
-                if (animationConfig?.enableDrawOn == true) {
+                if (animation?.enableDrawOn == true) {
                     val path = DrawOnAnimation.trimmedPath(offsets, drawOnProgress)
                     drawLinePath(path, lineStyle.lineColor, (lineStyle.lineWidth).value * density)
                 } else {
@@ -155,7 +183,7 @@ fun LineChart(
             val tipOffset = dataPointToOffset(
                 chartState.highlightedPoint!!,
                 drawLeft, drawTop, drawWidth, drawHeight,
-                bounds.minX, bounds.maxX, bounds.minY, bounds.maxY
+                bounds!!.minX, bounds!!.maxX, bounds!!.minY, bounds!!.maxY
             )
             Tooltip(
                 offset = tipOffset,
